@@ -1,4 +1,5 @@
 using FastEndpoints;
+using Microsoft.Extensions.Options;
 using RestSharp;
 
 public class AddressRequest
@@ -8,6 +9,7 @@ public class AddressRequest
     public string City { get; set; }
     public string Neighborhood { get; set; }
     public string State { get; set; }
+    public int Cep { get; set; }
 }
 
 public class AddressResponse
@@ -18,6 +20,13 @@ public class AddressResponse
 
 public class AddressEndpoint : Endpoint<AddressRequest, AddressResponse>
 {
+    private readonly GoogleMapsConfig _googleMapsConfig;
+
+    public AddressEndpoint(IOptions<GoogleConfig> googleMapsConfig)
+    {
+        _googleMapsConfig = googleMapsConfig.Value.MapsConfig;
+    }
+
     public override void Configure()
     {
         Post("/addresses");
@@ -26,11 +35,11 @@ public class AddressEndpoint : Endpoint<AddressRequest, AddressResponse>
 
     public override async Task HandleAsync(AddressRequest req, CancellationToken ct)
     {
-        var client = new RestClient("https://maps.googleapis.com/maps/api/geocode/json");
+        var client = new RestClient(_googleMapsConfig.Url);
         var request = new RestRequest();
         
-        request.AddParameter("address", $"{req.Street}, {req.Number}, {req.Neighborhood}, {req.City} - {req.State}");
-        request.AddParameter("key", "YOUR_GOOGLE_MAPS_API_KEY");
+        request.AddParameter("address", $"{req.Street}, {req.Number} - {req.Neighborhood}, {req.City} - {req.State} - {req.Cep}");
+        request.AddParameter("key", _googleMapsConfig.ApiKey);
 
         var response = await client.ExecuteGetAsync<GeocodeResponse>(request);
 
@@ -70,4 +79,15 @@ public class Location
 {
     public double Lat { get; set; }
     public double Lng { get; set; }
+}
+
+public class GoogleConfig
+{
+    public GoogleMapsConfig MapsConfig { get; set; }
+}
+
+public class GoogleMapsConfig
+{
+    public string Url { get; set; }
+    public string ApiKey { get; set; }
 }
